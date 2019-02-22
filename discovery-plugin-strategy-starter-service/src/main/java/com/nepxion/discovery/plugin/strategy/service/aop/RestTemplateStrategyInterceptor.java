@@ -10,10 +10,13 @@ package com.nepxion.discovery.plugin.strategy.service.aop;
  */
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,13 +29,13 @@ import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import com.nepxion.discovery.common.constant.DiscoveryConstant;
+import com.nepxion.discovery.common.util.StringUtil;
 import com.nepxion.discovery.plugin.strategy.service.constant.ServiceStrategyConstant;
 import com.nepxion.discovery.plugin.strategy.service.context.ServiceStrategyContextHolder;
 
 public class RestTemplateStrategyInterceptor implements ClientHttpRequestInterceptor {
     private static final Logger LOG = LoggerFactory.getLogger(RestTemplateStrategyInterceptor.class);
-
-    private String requestHeaders;
 
     @Autowired
     private ConfigurableEnvironment environment;
@@ -40,10 +43,21 @@ public class RestTemplateStrategyInterceptor implements ClientHttpRequestInterce
     @Autowired
     private ServiceStrategyContextHolder serviceStrategyContextHolder;
 
+    private List<String> requestHeaderList = new ArrayList<String>();
+
     public RestTemplateStrategyInterceptor(String requestHeaders) {
         LOG.info("------------- RestTemplate Intercept Information -----------");
         if (StringUtils.isNotEmpty(requestHeaders)) {
-            this.requestHeaders = requestHeaders.toLowerCase();
+            requestHeaderList.addAll(StringUtil.splitToList(requestHeaders.toLowerCase(), DiscoveryConstant.SEPARATE));
+        }
+        if (!requestHeaderList.contains(DiscoveryConstant.VERSION)) {
+            requestHeaderList.add(DiscoveryConstant.VERSION);
+        }
+        if (!requestHeaderList.contains(DiscoveryConstant.REGION)) {
+            requestHeaderList.add(DiscoveryConstant.REGION);
+        }
+        if (!requestHeaderList.contains(DiscoveryConstant.ADDRESS)) {
+            requestHeaderList.add(DiscoveryConstant.ADDRESS);
         }
         LOG.info("RestTemplate intercepted headers are {}", StringUtils.isNotEmpty(requestHeaders) ? requestHeaders : "empty");
         LOG.info("-------------------------------------------------");
@@ -51,7 +65,7 @@ public class RestTemplateStrategyInterceptor implements ClientHttpRequestInterce
 
     @Override
     public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
-        if (StringUtils.isEmpty(requestHeaders)) {
+        if (CollectionUtils.isEmpty(requestHeaderList)) {
             return execution.execute(request, body);
         }
 
@@ -75,7 +89,7 @@ public class RestTemplateStrategyInterceptor implements ClientHttpRequestInterce
             String headerName = headerNames.nextElement();
             String header = previousRequest.getHeader(headerName);
 
-            if (requestHeaders.contains(headerName.toLowerCase())) {
+            if (requestHeaderList.contains(headerName.toLowerCase())) {
                 if (interceptLogPrint) {
                     LOG.info("{}={}", headerName, header);
                 }
